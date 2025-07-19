@@ -7,28 +7,26 @@ import { cookies } from "next/headers";
 
 
 // ✅ API GET /api/orders
-export async function GET(req: NextRequest) {
+export async function GET() {
   await dbConnect();
-  const session = await getServerSession({
-  ...authOptions,
-  req: {
-    headers: {
-      cookie: cookies().toString(),
-    },
-  } as any,
-});
 
-  if (!session?.user?.id) {
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user || !session.user.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
+  // ✅ Lấy đơn hàng theo user
   const orders = await Order.find({ userId: session.user.id }).sort({ createdAt: -1 });
+
   return NextResponse.json(orders);
 }
 
 // ✅ API POST /api/orders
+
 export async function POST(req: NextRequest) {
   await dbConnect();
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -37,12 +35,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const { cart } = await req.json();
+
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
       return NextResponse.json({ message: "Giỏ hàng trống" }, { status: 400 });
     }
 
     const totalAmount = cart.reduce(
-      (sum: number, item: any) => sum + item.price * item.quantity,
+      (sum, item) => sum + item.price * item.quantity,
       0
     );
 
@@ -53,7 +52,9 @@ export async function POST(req: NextRequest) {
     });
 
     await newOrder.save();
+
     return NextResponse.json({ message: "Đặt hàng thành công" }, { status: 201 });
+
   } catch (err) {
     console.error("❌ Order creation error:", err);
     return NextResponse.json({ message: "Lỗi máy chủ" }, { status: 500 });
